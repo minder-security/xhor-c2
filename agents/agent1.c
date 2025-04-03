@@ -1,7 +1,12 @@
 #include <windows.h>
+#include <winsock.h>
+#include <wininet.h>
 #include <stdio.h>
 
+#pragma comment (lib, "wininet.lib")
+
 #define BUFFER_SIZE 4096
+
 
 // Function to handle internet connection
 BOOL InvokeUrl(LPCWSTR szUrl, PBYTE* pPayloadBytes, SIZE_T* sPayloadSize) {
