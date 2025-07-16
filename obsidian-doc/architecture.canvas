@@ -1,0 +1,8 @@
+{
+	"nodes":[
+		{"id":"f0524de8510ac086","x":-260,"y":-190,"width":250,"height":60,"type":"text","text":"mTLS engine"},
+		{"id":"835a5c3d5a442aad","type":"text","text":"Basic features:\n- ls\n- cd\n- ps\n- upload\n- download\n- load DLL","x":-260,"y":-130,"width":250,"height":250},
+		{"id":"e4ef626f7466d4e1","x":-260,"y":-260,"width":380,"height":55,"type":"text","text":"c2-agent"}
+	],
+	"edges":[]
+}
