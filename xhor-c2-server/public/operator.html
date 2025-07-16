@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <title>C2 Operator Console</title>
+  <style>
+    /* Reset & base */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #eee;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar with agents */
+    #sidebar {
+      width: 300px;
+      background: #1e1e1e;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+    #sidebar h2 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-weight: 700;
+      font-size: 1.25rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 0.5rem;
+    }
+    .implant {
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      border-radius: 5px;
+      cursor: pointer;
+      background: #252525;
+      transition: background 0.2s;
+    }
+    .implant:hover {
+      background: #444;
+    }
+    .implant.selected {
+      background: #007acc;
+    }
+
+    /* Main area with console at bottom */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #181818;
+    }
+
+    #header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #333;
+      font-weight: 700;
+      font-size: 1.5rem;
+      background: #202020;
+    }
+
+    /* Console container at bottom */
+    #consoleContainer {
+      margin-top: auto;
+      background: #222;
+      border-top: 1px solid #333;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      max-height: 320px;
+    }
+
+    #consoleHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      color: #bbb;
+      font-weight: 600;
+    }
+
+    #closeBtn {
+      background: none;
+      border: none;
+      color: #bbb;
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+    }
+    #closeBtn:hover {
+      color: #ff5555;
+    }
+
+    #results {
+      background: #111;
+      color: #eee;
+      font-family: monospace;
+      font-size: 0.9rem;
+      border-radius: 5px;
+      padding: 10px;
+      overflow-y: auto;
+      flex-grow: 1;
+      white-space: pre-wrap;
+      margin-bottom: 0.75rem;
+    }
+
+    #commandRow {
+      display: flex;
+      gap: 10px;
+    }
+    #cmdInput {
+      flex-grow: 1;
+      padding: 10px 12px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: none;
+      outline: none;
+      background: #333;
+      color: #eee;
+    }
+    #cmdInput::placeholder {
+      color: #888;
+    }
+    #sendBtn {
+      background: #007acc;
+      border: none;
+      color: white;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #sendBtn:hover {
+      background: #005f99;
+    }
+
+    /* Scrollbar styles */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1e1e1e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #666;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="sidebar">
+    <h2>Implants</h2>
+    <div id="implantList">Loading implants...</div>
+  </div>
+
+  <div id="main">
+    <div id="header">C2 Operator Console</div>
+
+    <div id="consoleContainer" style="display:none;">
+      <div id="consoleHeader">
+        <div id="implantHeader">No implant selected</div>
+        <button id="closeBtn" title="Close console">&times;</button>
+      </div>
+      <div id="results"></div>
+      <div id="commandRow">
+        <input id="cmdInput" type="text" placeholder="Enter command" autocomplete="off" />
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let selectedId = null;
+
+  const implantListDiv = document.getElementById('implantList');
+  const implantHeaderDiv = document.getElementById('implantHeader');
+  const consoleContainer = document.getElementById('consoleContainer');
+  const resultsDiv = document.getElementById('results');
+  const cmdInput = document.getElementById('cmdInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const closeBtn = document.getElementById('closeBtn');
+
+  async function fetchImplants() {
+    try {
+      const res = await fetch('/operator/implants');
+      const implants = await res.json();
+
+      implantListDiv.innerHTML = '';
+      implants.forEach(imp => {
+        const div = document.createElement('div');
+        div.className = 'implant';
+        div.textContent = `${imp.hostname} (${imp.os})`;
+        div.onclick = () => selectImplant(imp.id, imp.hostname, imp.os);
+        if (imp.id === selectedId) div.classList.add('selected');
+        implantListDiv.appendChild(div);
+      });
+
+    } catch (e) {
+      implantListDiv.textContent = 'Failed to load implants';
+      console.error(e);
+    }
+  }
+
+  async function selectImplant(id, hostname, os) {
+    selectedId = id;
+    implantHeaderDiv.textContent = `${hostname} (${os})`;
+    consoleContainer.style.display = 'flex';
+    updateSelectedInList();
+    fetchResults();
+  }
+
+  function updateSelectedInList() {
+    const implants = document.querySelectorAll('.implant');
+    implants.forEach(el => el.classList.remove('selected'));
+    for (const el of implants) {
+      if (el.textContent.startsWith(implantHeaderDiv.textContent)) {
+        el.classList.add('selected');
+        break;
+      }
+    }
+  }
+
+  async function sendCommand() {
+    if (!selectedId) {
+      alert('Select an implant first');
+      return;
+    }
+    if (!cmdInput.value.trim()) return;
+    try {
+      await fetch(`/operator/task/${selectedId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({command: cmdInput.value.trim()})
+      });
+      cmdInput.value = '';
+      fetchResults();
+    } catch(e) {
+      alert('Failed to send command');
+      console.error(e);
+    }
+  }
+
+  async function fetchResults() {
+    if (!selectedId) return;
+    try {
+      const res = await fetch(`/operator/results/${selectedId}`);
+      const results = await res.json();
+      resultsDiv.innerHTML = results.map(r => `<div>${r.output}</div>`).join('');
+      resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    } catch (e) {
+      resultsDiv.textContent = 'Failed to load results';
+      console.error(e);
+    }
+  }
+
+  sendBtn.onclick = sendCommand;
+  cmdInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendCommand();
+  });
+
+  closeBtn.onclick = () => {
+    consoleContainer.style.display = 'none';
+    selectedId = null;
+    implantHeaderDiv.textContent = 'No implant selected';
+    updateSelectedInList();
+  };
+
+  fetchImplants();
+  setInterval(fetchImplants, 5000);
+  setInterval(() => {
+    if (selectedId) fetchResults();
+  }, 4000);
+
+</script>
+
+</body>
+</html>
